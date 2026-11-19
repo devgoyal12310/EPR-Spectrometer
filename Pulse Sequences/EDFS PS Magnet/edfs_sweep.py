@@ -27,7 +27,7 @@ parameters.switch_pulse_ns = 600
 
 
 # Acquisition
-parameters.shot_repetition_time_ns = 5e6
+parameters.shot_repetition_time_ns = 1e6
 parameters.shots_number = 2048
 
 
@@ -35,9 +35,9 @@ parameters.shots_number = 2048
 parameters.pi_by_two_amplitude =0 # 0.175
 parameters.pi_amplitude = 0 #0.35
 
-sweep_value_min = 50 #Gauss
-sweep_value_max = 60 #Gauss
-sweep_value_step = 10 #Gauss
+sweep_value_min = 100 #Gauss
+sweep_value_max = 500 #Gauss
+sweep_value_step = 100 #Gauss
 
 
 parameters.filename ="Ni_bpyBr_" +\
@@ -45,7 +45,7 @@ parameters.filename ="Ni_bpyBr_" +\
                       "field_from" + "{:.2f}".format(sweep_value_min).replace('.', 'p') + "G_to" + \
                       "{:.2f}".format(sweep_value_max ).replace('.', 'p') + "G"
 
-parameters.filename=f"Test"
+parameters.filename=f"Test_Dev_"
 
 sweep = Sweep(
     experiment_class=EDFSExp,

@@ -25,18 +25,18 @@ parameters.switch_pulse_ns = 300
 
 
 # Acquisition
-parameters.shot_repetition_time_ns = 0.2e6
-parameters.shots_number = 20000
+parameters.shot_repetition_time_ns = 0.1e6
+parameters.shots_number = 50000
 
 # MW amplitudes
 
-parameters.pi_amplitude = 0.6 #0.75
-parameters.pi_by_two_amplitude =0.5*parameters.pi_amplitude
+parameters.pi_amplitude = 0 #0.6 #0.75
+parameters.pi_by_two_amplitude =0 #0.5*parameters.pi_amplitude
 
 
 parameters.filename ="Ni_bpyBr_C45_7p0K_test_" +\
                       "{:.4f}".format(parameters.mw_freq).replace('.', 'p') + "GHz_"
-
+parameters.filename= "Dev_test_"
 
 print("HI")
 result = experiment.run(True)

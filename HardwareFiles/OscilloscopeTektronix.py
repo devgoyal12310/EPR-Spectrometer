@@ -35,7 +35,7 @@ class OscilloscopeTektronix:
             ff_count = int(self.oscilloscope.query('HORizontal:FASTframe:MAXFRames?'))
 
             if (ff_count < nframes):
-                warnings.warn(f"Invalid FastFrame Numbers: {nframes}"
+                warnings.warn(f"Invalid FastFrame Numbers: {nframes} \n "
                               f"Using Maximum FastFrames Possible: {ff_count}.",
                               UserWarning,
                               stacklevel=2)
