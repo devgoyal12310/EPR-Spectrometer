@@ -135,7 +135,7 @@ class EPRHardware:
     def run(self,parameters,seq_prog_pos,seq_prog_neg,seq_prog_1,mw_hahn_echo,rf_hahn_echo,phase_cycle=True):
 
         # Change for different Channel Acquisition
-        channels = [1, 2]
+        channels = [1, 2,3,4]
 
         self.Osc.oscilloscope_init(parameters.shots_number)
 
