@@ -15,8 +15,8 @@ class CPMGExp:
 
         self.switch_right_margin_ns = 500 # Detection Pulse Gate Opening after end of last pi pulse
 
-        self.cpmg_det_left_margin_ns = 500 # After end of last pi pulse
-        self.cpmg_det_right_margin_ns = 500 # Before start of next pi pulse
+        self.cpmg_det_left_margin_ns = 100 # After end of last pi pulse
+        self.cpmg_det_right_margin_ns = 100 # Before start of next pi pulse
 
         self.save_directory = save_directory
         self.foldername = "CPMG"
@@ -73,16 +73,22 @@ class CPMGExp:
     def blank_pulse(self, pulse: int):
         return f"zeros({pulse});"
 
-    def generate_cpmg_string(self,table_index,cpmng_count):
-        cpmg_count_string = f""
+    def generate_cpmg_string(self, pattern_length, cpmg_count):
 
-        for i in range(cpmng_count):
-            cpmg_count_string+=f"executeTableEntry({table_index});" +"\n"
+        repeats = cpmg_count // pattern_length  # Number of repetitions - removes the decimal
+        pattern = ""
 
-        return cpmg_count_string
+        for i in range(pattern_length):
+            table_index= 5+i
+            pattern+=f"executeTableEntry({table_index});\n"
 
+        return f"""
+        repeat({repeats}) {{
+            {pattern}
+        }}
+        """
 
-    def mw_iq_pulse(self,left_zeros: int,pulse: int,right_zeros: int,frequency_hz: float,axis: str = "+X",iq_phase_offset_deg: float = 0.0,envelope: str = "square",):
+    def mw_iq_pulse(self,left_zeros: int,pulse: int,right_zeros: int,frequency_hz: float,axis: str = "+X",iq_phase_offset_deg: float = 0.0,envelope: str = "square",phase_offset=0.0):
         fs = 2.4e9
 
         envelope = envelope.strip().lower()
@@ -108,7 +114,7 @@ class CPMGExp:
             if axis not in axis_amplitudes:
                 raise ValueError(f"Invalid pulse axis '{axis}': Use +X, -X, +Y or -Y.")
 
-            i_amp, q_amp = axis_amplitudes[axis]
+            i_amp, q_amp = axis_amplitudes[axis]   # Needs to be generalized to i = cos (phase) and q = sin (phase)
 
             i_pulse = f"({i_amp} * {env})"
             q_pulse = f"({q_amp} * {env})"
@@ -121,7 +127,7 @@ class CPMGExp:
                 raise ValueError(f"Invalid pulse axis '{axis}': Use +X, -X, +Y or -Y.")
 
             # Convert Axis to main phase
-            axis_phase_deg = axis_phases[axis]
+            axis_phase_deg = axis_phases[axis] + phase_offset
             periods = pulse * frequency_hz / fs
 
             # Convert phase
@@ -180,9 +186,89 @@ class CPMGExp:
 
         return seq
 
+    def generate_cpmg_waveforms(self,left_zeros,pulse_samples,right_zeros):
+        configs = self.get_cpmg_config()
+
+        waveforms = []
+
+        for axis, amplitude, phase in configs:
+            i_wave, q_wave = self.mw_iq_pulse(
+                left_zeros=left_zeros,
+                pulse=pulse_samples,
+                right_zeros=right_zeros,
+                frequency_hz=self.parameters.pulse_freq,
+                axis=axis,
+                iq_phase_offset_deg=4.25,
+                envelope=self.parameters.envelope,
+                phase_offset=phase
+            )
+
+            waveforms.append({
+                "i": i_wave,
+                "q": q_wave,
+                "amplitude": amplitude
+            })
+
+        return waveforms
+
+    def get_cpmg_config(self):
+
+        axes = self.parameters.cpmg_pulse_axes
+        amplitudes = self.parameters.cpmg_pulse_amplitudes
+        phases = self.parameters.cpmg_pulse_phase_offsets
+
+        if phases is None:
+            phases = [0.0] * len(axes)
+
+        if not (
+                len(axes) == len(amplitudes) == len(phases)
+        ):
+            raise ValueError(
+                "CPMG axes, amplitudes and phase offsets "
+                "must have equal lengths."
+            )
+
+        if not axes:
+            raise ValueError("CPMG pattern cannot be empty")
+
+        if self.parameters.cpmg_count % len(axes) != 0:
+            raise ValueError(
+                "CPMG count must be divisible by pattern length"
+            )
+
+        if any(a < 0 or a > 1 for a in amplitudes):
+            raise ValueError("CPMG amplitudes must be between 0 and 1")
+
+        return list(zip(axes, amplitudes, phases))
+
+    def generate_cpmg_wave_definitions(self, waveforms, amp_3):
+
+        definitions = []
+
+        for i, wave in enumerate(waveforms):
+            wave_index = 2 + i
+
+            definitions.append(f"""
+            wave cpmg_i_{i} = {wave["i"]}
+            wave cpmg_q_{i} = {wave["q"]}
+
+            wave cpmg_amp_{i} = {amp_3}
+
+            cpmg_i_{i} = cpmg_i_{i} + cpmg_amp_{i};
+            cpmg_q_{i} = cpmg_q_{i} + cpmg_amp_{i};
+
+            assignWaveIndex(
+                cpmg_i_{i},
+                cpmg_q_{i},
+                {wave_index}
+            );
+            """)
+
+        return "\n".join(definitions)
 
 
-    def seq_program_0(self,cpmg_pulse_i,cpmg_pulse_q,amp_3,pi_by_two_pulse_i,pi_by_two_pulse_q,amp_1,pi_pulse_i,pi_pulse_q,amp_2,detection_pulse,amp_4,trigger,shots,shot_repetition,pi_by_two_pulse_ct_index,cpmg_count_string):
+
+    def seq_program_0(self,cpmg_definitions,pi_by_two_pulse_i,pi_by_two_pulse_q,amp_1,pi_pulse_i,pi_pulse_q,amp_2,detection_pulse,amp_4,trigger,shots,shot_repetition,pi_by_two_pulse_ct_index,cpmg_count_string,detection_wave_index):
         seqc_program = f"""       
         // Section 1
         wave mw_sec_i_1 = {pi_by_two_pulse_i}
@@ -199,11 +285,7 @@ class CPMGExp:
         mw_sec_q_2 = mw_sec_q_2 + m_amp_2;
         
         //Section 3
-        wave mw_sec_i_3 = {cpmg_pulse_i}
-        wave mw_sec_q_3 = {cpmg_pulse_q}
-        wave m_amp_3 = {amp_3}
-        mw_sec_i_3 = mw_sec_i_3 + m_amp_3;
-        mw_sec_q_3 = mw_sec_q_3 + m_amp_3;
+        {cpmg_definitions}
         
         // Section 3
         wave mw_sec_4 = {detection_pulse}
@@ -215,8 +297,7 @@ class CPMGExp:
         // Assigning Indices
         assignWaveIndex(mw_sec_i_1,mw_sec_q_1,0);
         assignWaveIndex(mw_sec_i_2,mw_sec_q_2,1);
-        assignWaveIndex(mw_sec_i_3,mw_sec_q_3,2);
-        assignWaveIndex(mw_sec_4,mw_sec_4,3);
+        assignWaveIndex(mw_sec_4,mw_sec_4,{detection_wave_index});
 
         repeat({shots}){{
             executeTableEntry({pi_by_two_pulse_ct_index});
@@ -281,11 +362,21 @@ class CPMGExp:
 
 
     def mw_hahn_echo(self, ct):
+        configs = self.get_cpmg_config()
+        detection_wave_index = 2 + len(configs)
+
         self.pi_pulse_pos(ct, self.parameters.pi_by_two_amplitude, 0, 0)
         self.pi_pulse_pos(ct, self.parameters.pi_amplitude, 1, 1)
-        self.pi_pulse_pos(ct,self.parameters.cpmg_pulse_amplitude, 2, 2)
-        self.pi_pulse_pos(ct, 0.0, 3, 3)
+        self.pi_pulse_pos(ct, 0.0, detection_wave_index, 3)
         self.pi_pulse_pos(ct,-self.parameters.pi_by_two_amplitude, 0, 4)  # Negative Phase Cycle
+
+        for i in range(len(self.parameters.cpmg_pulse_amplitudes)):
+
+            amp = self.parameters.cpmg_pulse_amplitudes[i]
+            wave_index = 2 + i
+            table_index = 5+ i
+            self.pi_pulse_pos(ct, amp, wave_index, table_index)
+
 
     def rf_hahn_echo(self, ct):
         self.pi_pulse_pos(ct, 1.0, 0, 0)
@@ -394,16 +485,6 @@ class CPMGExp:
         rf_left_zeros = int(pi_pulse_samples / 2)
         rf_right_zeros = int(cpmg_pulse_samples / 2)
 
-        # Strings for sequence
-
-        pi_by_two_pulse_i, pi_by_two_pulse_q = self.mw_iq_pulse(seq_offset_samples, pi_by_two_pulse_samples, 0,
-                                                                parameters.pulse_freq, "+X", 4.25, parameters.envelope)
-        pi_pulse_i, pi_pulse_q = self.mw_iq_pulse(gap_len1_samples, pi_pulse_samples, 0,
-                                                                parameters.pulse_freq, "-Y", 4.25, parameters.envelope)
-        cpmg_pulse_i, cpmg_pulse_q = self.mw_iq_pulse(cpmg_gap_len_samples, cpmg_pulse_samples, 0,
-                                                                parameters.pulse_freq, "-Y", 4.25, parameters.envelope)
-
-
         hpa_source_equal_switch = True  # put true if you want HPA to turn off between pulses with timings same as Source Switch
 
         if hpa_source_equal_switch == True:
@@ -420,6 +501,22 @@ class CPMGExp:
             amp_2 = self.marker_pulse(0, mw_section_2_samples, 0, 2)  # commented
             amp_4 = self.marker_pulse(0, amp_right_margin_samples, amp_4_right_zeros_samples, 2)  # commentred
             amp_3 = self.marker_pulse(0, mw_section_3_samples, 0, 2)  # commented
+
+
+
+        # Strings for sequence
+
+        pi_by_two_pulse_i, pi_by_two_pulse_q = self.mw_iq_pulse(seq_offset_samples, pi_by_two_pulse_samples, 0,
+                                                                parameters.pulse_freq, parameters.pi_by_two_axis, 4.25, parameters.envelope)
+        pi_pulse_i, pi_pulse_q = self.mw_iq_pulse(gap_len1_samples, pi_pulse_samples, 0,
+                                                                parameters.pulse_freq, parameters.pi_axis, 4.25, parameters.envelope)
+
+        cpmg_waveforms = self.generate_cpmg_waveforms(cpmg_gap_len_samples,cpmg_pulse_samples,0)
+        cpmg_definitions = self.generate_cpmg_wave_definitions(cpmg_waveforms,amp_3)
+        cpmg_count_string = self.generate_cpmg_string(len(cpmg_waveforms),parameters.cpmg_count)
+
+        detection_wave_index = 2 +len(cpmg_waveforms)
+
 
 
         detection_pulse = self.blank_pulse(mw_section_4_samples)
@@ -443,9 +540,9 @@ class CPMGExp:
             switch_3 = self.rep_marker_pulse(cpmg_detection_left_zeros_samples,cpmg_detection_pulse_samples,cpmg_detection_right_zeros_samples+cpmg_pulse_samples,1,parameters.cpmg_count,0,0)
 
         else:
-            switch_3 = self.marker_pulse(0,cpmg_gap_len_samples,0,0)
-
-        cpmg_count_string = self.generate_cpmg_string(2,parameters.cpmg_count)
+            switch_3 = self.rep_marker_pulse(cpmg_detection_left_zeros_samples, cpmg_detection_pulse_samples,
+                                             cpmg_detection_right_zeros_samples + cpmg_pulse_samples, 0,
+                                             parameters.cpmg_count, 0, 0)
 
         # rf_string sequence
 
@@ -472,8 +569,11 @@ class CPMGExp:
         if detection_end_samples < earliest_detection_samples:
             raise ValueError(f"Detection opens before the right margin. Increase Tau or gap_len1_ns ")
 
-        if osc_trig_left_zeros_samples+240 > mw_section_3_samples:
+        if osc_trig_left_zeros_samples+240 > mw_section_4_samples:
             raise ValueError(f"Trigger offset {parameters.trigger_offset_ns} ns places trigger beyond detection section.")
+
+        if osc_trig_left_zeros_samples < 0:
+            raise ValueError("Trigger starts before detection section")
 
         if (amp_1_left_zeros_samples <= 0):
             raise ValueError("Increase Sequence Offset by minimum of: ",
@@ -486,8 +586,7 @@ class CPMGExp:
         # Build programs
 
         seq_prog_pos = self.seq_program_0(
-            cpmg_pulse_i,cpmg_pulse_q,
-            amp_3,
+            cpmg_definitions,
             pi_by_two_pulse_i,pi_by_two_pulse_q,
             amp_1,
             pi_pulse_i,pi_pulse_q,
@@ -496,11 +595,10 @@ class CPMGExp:
             amp_4,
             osc_trig,
             parameters.shots_number,
-            shot_repetition,0,cpmg_count_string
+            shot_repetition,0,cpmg_count_string,detection_wave_index
         )
         seq_prog_neg = self.seq_program_0(
-            cpmg_pulse_i,cpmg_pulse_q,
-            amp_3,
+            cpmg_definitions,
             pi_by_two_pulse_i,pi_by_two_pulse_q,
             amp_1,
             pi_pulse_i,pi_pulse_q,
@@ -509,7 +607,7 @@ class CPMGExp:
             amp_4,
             osc_trig,
             parameters.shots_number,
-            shot_repetition,4,cpmg_count_string
+            shot_repetition,4,cpmg_count_string,detection_wave_index
         )
 
         seq_prog_1 = self.seq_program_1(mw_section_1_samples,
@@ -526,6 +624,8 @@ class CPMGExp:
             shot_repetition,cpmg_count_string,rf_seq
         )
 
+        #print(seq_prog_1)
+        #print(seq_prog_pos)
         result = self.hardware.run(parameters, seq_prog_pos, seq_prog_neg, seq_prog_1, self.mw_hahn_echo,
                                    self.rf_hahn_echo)
 

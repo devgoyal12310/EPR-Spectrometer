@@ -19,9 +19,15 @@ class CPMGParameters:
         self.cpmg_detection_bool = False
         self.rf_tau_ns = 111.0
 
+        self.pi_by_two_axis = "+X"
+        self.pi_axis = "+X"
+
         self.cpmg_pulse_ns = 50
-        self.cpmg_pulse_amplitude = 1.0
         self.cpmg_count = 1
+        self.cpmg_pulse_axes = ["+X"]
+        self.cpmg_pulse_amplitudes = [0.5]
+        self.cpmg_pulse_phase_offsets = [0.0]
+
 
         self.rf_amp = 1.0
         self.rf_phase = 0.0
@@ -52,14 +58,19 @@ class CPMGParameters:
             "number_of_shots": self.shots_number,
             "pi_by_two_amplitude": self.pi_by_two_amplitude,
             "pi_amplitude": self.pi_amplitude,
-            "cpmg_pulse_amp": self.cpmg_pulse_amplitude,
+            "pi_by_two_axis": self.pi_by_two_axis,
+            "pi_axis": self.pi_axis,
             "cpmg_pulse_ns": self.cpmg_pulse_ns,
             "cpmg_count": self.cpmg_count,
             "cpmg_gap_len_ns": self.cpmg_gap_len_ns,
+            "cpmg_detection_bool": self.cpmg_detection_bool,
+            "cpmg_pulse_axes":self.cpmg_pulse_axes,
+            "cpmg_pulse_amplitudes":self.cpmg_pulse_amplitudes,
+            "cpmg_pulse_phase_offsets":self.cpmg_pulse_phase_offsets,
             "oscilloscope_wait_time": self.oscilloscope_wait_time,
             "rf_amp":self.rf_amp,
             "rf_phase":self.rf_phase,
             "rf_frequency":self.rf_frequency,
             "rf_freq_frac":self.rf_freq_frac,
-             "rf_tau_ns_tau_sweep":self.rf_tau_ns
+            "rf_tau_ns_tau_sweep":self.rf_tau_ns
         }
