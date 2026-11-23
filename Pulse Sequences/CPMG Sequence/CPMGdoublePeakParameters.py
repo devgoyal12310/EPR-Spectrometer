@@ -22,7 +22,7 @@ class CPMGdoublePeakParameters:
         self.cpmg_pulse_ns = 50
         self.cpmg_pulse_amplitude = 1.0
         self.cpmg_count = 1
-        self.cpmg_pulse_axis = +X
+        self.cpmg_pulse_axis = "+X"
 
         self.rf_amp = 1.0
         self.rf_phase = 0.0
