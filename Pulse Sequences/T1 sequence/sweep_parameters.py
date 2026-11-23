@@ -2,7 +2,7 @@ import time
 
 from InversionRecoveryExp import InversionRecoveryExp
 from InversionRecoveryParameters import InversionRecoveryParameters
-from EPRHardware import HahnEchoHardware
+from EPRHardware import EPRHardware
 from Sweep import Sweep
 import numpy as np
 
@@ -16,7 +16,7 @@ parameters.B0_field = 0 #Setting nothing. Just to record the parameter.
 parameters.pulse_freq = 100e6
 
 
-hardware = HahnEchoHardware(parameters) # Should be kept after frequencies
+hardware = EPRHardware(parameters) # Should be kept after frequencies
 hardware.set_iq_offset(0.01628,-0.03015)
 experiment = InversionRecoveryExp(parameters,hardware)
 
