@@ -19,7 +19,9 @@ class EDFSExp:
 
         magnet.set_centerfield(parameters.B_field)
         time.sleep(3)
-        if parameters.B_field > 0:
+        # set_centerfield commands zero current below ~38.8 G, where the resistance
+        # is undefined (ZeroDivisionError). Check the measured current instead.
+        if magnet.get_current_in_A() > 0:
             magnet_resistance_check_value = magnet.get_resistance_in_Ohm()
             #magnet.check_resistance(parameters.B_field)  # Magent safety - resistance check during field =/=0
 
