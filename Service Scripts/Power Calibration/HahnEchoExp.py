@@ -229,9 +229,7 @@ class HahnEchoExp:
             file_name = f"{parameters.filename}_{self.exp_type}"
 
             saved_path = self.hardware.Osc.save_data_to_matlab(
-                positive_channel_data=result["positive_channel_data"],
-                negative_channel_data=result["negative_channel_data"],
-                oscilloscope_time_step=result["oscilloscope_time_step"],
+                exp_data=result,
                 exp_parameters=exp_parameters,
                 save_directory=save_directory,
                 file_name=file_name
