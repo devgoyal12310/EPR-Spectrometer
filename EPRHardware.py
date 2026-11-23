@@ -1,4 +1,5 @@
 import time
+import warnings
 import requests
 
 t = time.perf_counter()
@@ -55,6 +56,15 @@ class EPRHardware:
         if (self.time_checks == 1):
             print(f"[Intializing HDAWG]: {time.perf_counter() - t:.6f} s")
 
+    def read_or_nan(self, reader, label):
+        # A failed sensor read should not discard the oscilloscope data
+        # acquired in the same run; record NaN and warn instead.
+        try:
+            return reader()
+        except Exception as error:
+            warnings.warn(f"Could not read {label}: {error!r}. Recording NaN.", RuntimeWarning, stacklevel=2)
+            return float("nan")
+
     def read_temp(self):
         temp = self.ITC.get_temperature()
         return temp
@@ -69,9 +79,11 @@ class EPRHardware:
 
         self.device.system.awg.channelgrouping(0)
 
-        self.temp = None
-        self.field_before = None
-        self.field_after = None
+        # NaN (not None) so the values can always be written by scipy.io.savemat,
+        # e.g. on the QMUL machine where these sensors are not read.
+        self.temp = float("nan")
+        self.field_before = float("nan")
+        self.field_after = float("nan")
 
         self.device.awgs[0].enable(0)
         self.device.awgs[1].enable(0)
@@ -142,7 +154,7 @@ class EPRHardware:
         time.sleep(1)  # Important to keep
 
         if self.Machine==0:
-            self.field_before = self.read_magnetic_field()
+            self.field_before = self.read_or_nan(self.read_magnetic_field, "magnetic field (before)")
 
         # definition
         device = self.device
@@ -240,8 +252,8 @@ class EPRHardware:
             negative_result = positive_result
 
         if self.Machine == 0:
-            self.field_after = self.read_magnetic_field()
-            self.temp = self.read_temp()
+            self.field_after = self.read_or_nan(self.read_magnetic_field, "magnetic field (after)")
+            self.temp = self.read_or_nan(self.read_temp, "temperature")
 
         return {
             "temperature":self.temp,
