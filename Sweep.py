@@ -106,21 +106,30 @@ class Sweep:
 
                 completed_points = i + 1
 
-        except KeyboardInterrupt:
-            print(" Sweep Interrupted")
+        except BaseException as error:
+            # Save completed points on Ctrl+C and on any other failure
+            # (instrument timeout, validation error at a later point, ...)
+            if isinstance(error, KeyboardInterrupt):
+                print(" Sweep Interrupted")
+            else:
+                print(f" Sweep stopped by error: {error!r}")
 
             if completed_points > 0:
-                self.save(
-                    positive_data,
-                    negative_data,
-                    oscilloscope_time_step,
-                    temperatures,
-                    field_befores,
-                    field_afters,
-                    completed_points,
-                    timestamps,
-                    interrupted=True
-                )
+                try:
+                    self.save(
+                        positive_data,
+                        negative_data,
+                        oscilloscope_time_step,
+                        temperatures,
+                        field_befores,
+                        field_afters,
+                        completed_points,
+                        timestamps,
+                        interrupted=True
+                    )
+                except Exception as save_error:
+                    # Do not hide the original error behind a save error
+                    print(f" Could not save partial sweep data: {save_error!r}")
 
             raise
 
