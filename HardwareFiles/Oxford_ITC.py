@@ -34,16 +34,19 @@ class Oxford_ITC:
         string_text = 'C2'
         self.ITCask(string_text)
 
-    def get_temperature(self):
-        string_text = 'R1'
-        text = self.ITCask(string_text)
-        try:
-            temperature = float(text.replace('R',''))
-        except ValueError:
-            self.clear_queue()
-            temperature = self.get_temperature()
+    def read_value(self, string_text, retries=3):
+        # Query an R<n> reading. On a garbled reply clear the queue and retry
+        # the same query, giving up after `retries` attempts instead of recursing forever.
+        for attempt in range(retries):
+            text = self.ITCask(string_text)
+            try:
+                return float(text.replace('R',''))
+            except ValueError:
+                self.clear_queue()
+        raise ValueError(f"ITC gave no valid reply to {string_text!r} after {retries} attempts (last reply: {text!r})")
 
-        return temperature
+    def get_temperature(self):
+        return self.read_value('R1')
 
     def get_setpoint(self):
         string_text = 'R0'
@@ -75,26 +78,10 @@ class Oxford_ITC:
             print('Heater must between 00.0 and 99.9.')
 
     def get_heater_percent(self):
-        string_text = 'R5'
-        text = self.ITCask(string_text)
-        try:
-            heater = float(text.replace('R',''))
-        except ValueError:
-            self.clear_queue()
-            heater = self.get_temperature()
-
-        return heater
+        return self.read_value('R5')
 
     def get_heater_voltage(self):
-        string_text = 'R6'
-        text = self.ITCask(string_text)
-        try:
-            heater = float(text.replace('R',''))
-        except ValueError:
-            self.clear_queue()
-            heater = self.get_temperature()
-
-        return heater
+        return self.read_value('R6')
 
 
     def clear_queue(self):
