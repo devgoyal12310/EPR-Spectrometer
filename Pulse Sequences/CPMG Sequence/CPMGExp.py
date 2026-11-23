@@ -473,7 +473,7 @@ class CPMGExp:
         if detection_end_samples < earliest_detection_samples:
             raise ValueError(f"Detection opens before the right margin. Increase Tau or gap_len1_ns ")
 
-        if osc_trig_left_zeros_samples+240 > mw_section_3_samples:
+        if osc_trig_left_zeros_samples+240 > mw_section_4_samples:
             raise ValueError(f"Trigger offset {parameters.trigger_offset_ns} ns places trigger beyond detection section.")
 
         if (amp_1_left_zeros_samples <= 0):
