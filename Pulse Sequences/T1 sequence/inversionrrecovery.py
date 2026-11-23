@@ -2,7 +2,7 @@ print("Start")
 
 from InversionRecoveryExp import InversionRecoveryExp
 from InversionRecoveryParameters import InversionRecoveryParameters
-from EPRHardware import HahnEchoHardware
+from EPRHardware import EPRHardware
 
 
 parameters = InversionRecoveryParameters()
@@ -11,7 +11,7 @@ parameters = InversionRecoveryParameters()
 parameters.pulse_freq = 10e6
 parameters.mw_freq = 9.7059  # actual is 9.569394
 
-hardware = HahnEchoHardware(parameters) # Should be kept after frequencies
+hardware = EPRHardware(parameters) # Should be kept after frequencies
 experiment = InversionRecoveryExp(parameters,hardware)
 
 # Pulse sequence

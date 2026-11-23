@@ -1,6 +1,6 @@
 import numpy as np
 
-from EPRHardware import HahnEchoHardware
+from EPRHardware import EPRHardware
 
 
 class InversionRecoveryExp:
