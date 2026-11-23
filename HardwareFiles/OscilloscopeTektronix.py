@@ -153,14 +153,22 @@ class OscilloscopeTektronix:
         time_in_s, channel_data, time_step = self.acquire_channels(channels=channels, frame_number=parameters.shots_number+self.nframes_offset)
         return{ "time":time_in_s,"channel_data":channel_data,"time_step":time_step}
 
-    def check_acquisition_status(self):
+    def check_acquisition_status(self, timeout_s=None):
+        # Wait until the acquisition stops. timeout_s = None waits indefinitely.
         self.oscilloscope.write('header off')
         time.sleep(0.5)
+        start = time.perf_counter()
         while True:
             state = int(self.oscilloscope.query("ACQUIRE:STATE?"))
 
             if state == 0:
                 break
+
+            if timeout_s is not None and (time.perf_counter() - start) > timeout_s:
+                raise TimeoutError(
+                    f"Oscilloscope acquisition did not finish within {timeout_s:.1f} s. "
+                    f"Check the trigger (AUX in) and that the AWG sequence is running."
+                )
 
             time.sleep(0.05)
 
