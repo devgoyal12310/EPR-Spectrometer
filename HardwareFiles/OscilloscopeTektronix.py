@@ -23,6 +23,12 @@ class OscilloscopeTektronix:
 
     def oscilloscope_init(self, nframes):
 
+        if (nframes<1):
+            raise ValueError(" FastFrame Number cannot be 0 or negative")
+
+        # Frame read back by scope_run. Without FastFrame there is only frame 1.
+        self.frame_to_read = 1
+
         self.oscilloscope.write('*CLS')
         self.oscilloscope.write('header off')
         self.oscilloscope.write('*CLS')
@@ -44,8 +50,8 @@ class OscilloscopeTektronix:
             self.oscilloscope.write(f'horizontal:fastframe:count {nframes}')
             self.oscilloscope.write("HORizontal:FASTframe:SUMFrame AVErage")
             self.oscilloscope.write(':horizontal:fastframe:selected:ch1 ' + str(nframes + self.nframes_offset))
-        if (nframes<1):
-            raise ValueError(" FastFrame Number cannot be 0 or negative")
+            # Summary (average) frame, using the possibly clamped frame count
+            self.frame_to_read = nframes + self.nframes_offset
 
         self.oscilloscope.write('acquire:stopafter sequence')
         # Trigger Settings
@@ -150,7 +156,10 @@ class OscilloscopeTektronix:
     def scope_run(self,channels,parameters):
 
         # Acquisition part
-        time_in_s, channel_data, time_step = self.acquire_channels(channels=channels, frame_number=parameters.shots_number+self.nframes_offset)
+        # Use the frame chosen in oscilloscope_init: it accounts for the FastFrame
+        # count being clamped to the scope maximum, and for FastFrame being off.
+        frame_number = getattr(self, "frame_to_read", parameters.shots_number + self.nframes_offset)
+        time_in_s, channel_data, time_step = self.acquire_channels(channels=channels, frame_number=frame_number)
         return{ "time":time_in_s,"channel_data":channel_data,"time_step":time_step}
 
     def check_acquisition_status(self):
