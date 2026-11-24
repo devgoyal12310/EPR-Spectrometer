@@ -22,6 +22,14 @@ class EPRHardware:
 
         self.time_checks = 0
 
+        # Oscilloscope acquisition timeout:
+        # factor * parameters.oscilloscope_wait_time + margin (seconds).
+        # What happens when it is exceeded is set per experiment by
+        # parameters.abort_on_acquisition_timeout (False = warn and keep waiting, True = abort).
+        # Set acquisition_timeout_factor = None to wait indefinitely with no warning.
+        self.acquisition_timeout_factor = 2.0
+        self.acquisition_timeout_margin_s = 120.0
+
         if self.Machine == 0:
 
             self.MWSource = MWSource()
@@ -121,6 +129,12 @@ class EPRHardware:
             self.SR830.set_aux_vol(4, 4.5)
 
 
+    def acquisition_timeout(self, parameters):
+        wait_time = getattr(parameters, "oscilloscope_wait_time", None)
+        if self.acquisition_timeout_factor is None or wait_time is None:
+            return None
+        return self.acquisition_timeout_factor * wait_time + self.acquisition_timeout_margin_s
+
     def dispose(self):
         self.device.awgs[0].enable(0)
         self.device.awgs[1].enable(0)
@@ -136,6 +150,10 @@ class EPRHardware:
 
         # Change for different Channel Acquisition
         channels = [1, 2,3,4]
+
+        timeout_s = self.acquisition_timeout(parameters)
+        # False (default) = warn and keep waiting; True = stop the run with TimeoutError
+        abort_on_timeout = bool(getattr(parameters, "abort_on_acquisition_timeout", False))
 
         self.Osc.oscilloscope_init(parameters.shots_number)
 
@@ -184,7 +202,7 @@ class EPRHardware:
             print("AWG started")
             t0=time.perf_counter()
 
-        self.Osc.check_acquisition_status()
+        self.Osc.check_acquisition_status(timeout_s, abort_on_timeout)
 
         if (self.time_checks == 1):
             print((time.perf_counter() - t0), " Time to average for the Oscilloscope Positive Cycle")
@@ -196,7 +214,7 @@ class EPRHardware:
             print((time.perf_counter() - t0), " Time to save data Positive Cycle")
             t0=time.perf_counter()
 
-        self.Osc.check_acquisition_status()
+        self.Osc.check_acquisition_status(timeout_s, abort_on_timeout)
 
 
         ## Second Negative Phase Cycle
@@ -223,7 +241,7 @@ class EPRHardware:
                 print((time.perf_counter() - t0), " Time to enable Sequencer Neagative Phase Cycle")
                 t0=time.perf_counter()
 
-            self.Osc.check_acquisition_status()
+            self.Osc.check_acquisition_status(timeout_s, abort_on_timeout)
 
             if (self.time_checks == 1):
                 print((time.perf_counter() - t0), " Time to average for the Oscilloscope Negative Cycle")

@@ -45,6 +45,11 @@ class CPMGParameters:
         self.shot_repetition_time_ns = 1e6
         self.shots_number = 32
 
+        # Oscilloscope wait: if an acquisition takes longer than expected
+        # (2 x oscilloscope_wait_time + 120 s): False = print a warning and keep waiting,
+        # True = stop the run with a TimeoutError.
+        self.abort_on_acquisition_timeout = False
+
         self.pi_by_two_amplitude_1 = 0.5
         self.pi_amplitude_1 = 1.0
         self.pi_by_two_amplitude_2 = 0.5
