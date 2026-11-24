@@ -19,6 +19,11 @@ class EDFSParameters():
 
         self.shot_repetition_time_ns = 1e6
         self.shots_number = 32
+
+        # Oscilloscope wait: if an acquisition takes longer than expected
+        # (2 x oscilloscope_wait_time + 120 s): False = print a warning and keep waiting,
+        # True = stop the run with a TimeoutError.
+        self.abort_on_acquisition_timeout = False
         self.pulse_freq = 0
 
         self.pi_by_two_amplitude = 0.5

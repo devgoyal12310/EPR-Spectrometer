@@ -153,24 +153,40 @@ class OscilloscopeTektronix:
         time_in_s, channel_data, time_step = self.acquire_channels(channels=channels, frame_number=parameters.shots_number+self.nframes_offset)
         return{ "time":time_in_s,"channel_data":channel_data,"time_step":time_step}
 
-    def check_acquisition_status(self, timeout_s=None):
-        # Wait until the acquisition stops. timeout_s = None waits indefinitely.
+    def check_acquisition_status(self, timeout_s=None, abort_on_timeout=False):
+        # Wait until the acquisition stops. If it is still running after timeout_s seconds:
+        #   abort_on_timeout = False: print one warning and keep waiting (Ctrl+C still stops the run)
+        #   abort_on_timeout = True:  raise TimeoutError (a Sweep then saves its completed points)
+        # timeout_s = None waits indefinitely, with no warning.
         self.oscilloscope.write('header off')
         time.sleep(0.5)
         start = time.perf_counter()
+        warned = False
         while True:
             state = int(self.oscilloscope.query("ACQUIRE:STATE?"))
 
             if state == 0:
                 break
 
-            if timeout_s is not None and (time.perf_counter() - start) > timeout_s:
-                raise TimeoutError(
-                    f"Oscilloscope acquisition did not finish within {timeout_s:.1f} s. "
-                    f"Check the trigger (AUX in) and that the AWG sequence is running."
+            if timeout_s is not None and not warned and (time.perf_counter() - start) > timeout_s:
+                if abort_on_timeout:
+                    raise TimeoutError(
+                        f"Oscilloscope acquisition did not finish within {timeout_s:.1f} s. "
+                        f"Check the trigger (AUX in) and that the AWG sequence is running."
+                    )
+                warnings.warn(
+                    f"Oscilloscope acquisition still running after {timeout_s:.1f} s, longer than expected. "
+                    f"Still waiting; if it never finishes, check the trigger (AUX in) and that the AWG "
+                    f"sequence is running, then press Ctrl+C.",
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
+                warned = True
 
             time.sleep(0.05)
+
+        if warned:
+            print(f"Oscilloscope acquisition finished after {time.perf_counter() - start:.1f} s.")
 
     def check_acquisition_status_old(self):
         print(self.oscilloscope.query('*OPC?'))  # if program is interrupted during this command - the osc stops responding
